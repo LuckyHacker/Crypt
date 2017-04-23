@@ -1,6 +1,5 @@
 from hashlib import sha256
 import time, sys, random, math, os, re, shutil
-#import chardet # detect data encoding
 
 '''
 Simple XOR operation encrypting
