@@ -1,4 +1,3 @@
-# Copyright (C) 2016-2017 luckyhacker.com
 from hashlib import sha256
 import time, sys, random, math, os, re, shutil
 #import chardet # detect data encoding
