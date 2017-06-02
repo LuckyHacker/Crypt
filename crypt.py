@@ -1,3 +1,4 @@
+# Copyright (C) 2016-2017 luckyhacker.com
 from hashlib import sha256
 import time, sys, random, math, os, re, shutil
 
@@ -11,23 +12,23 @@ class XOR:
 		if job:
 			self.pb = ProgressBar(job[0])
 
-	def InsertData(self, data):
+	def insert_data(self, data):
 		self.data = data
-		self.KeyMultiplier = int(len(self.data) / len(self.key))
-		if self.KeyMultiplier < 1:
-			self.KeyMultiplier = 1
-		self.key = self.key * self.KeyMultiplier
+		self.key_multiplier = int(len(self.data) / len(self.key))
+		if self.key_multiplier < 1:
+			self.key_multiplier = 1
+		self.key = self.key * self.key_multiplier
 		while len(self.key) < len(self.data):
 			self.key += self.key
-		return self._Encrypt()
+		return self._encrypt()
 
-	def _Encrypt(self):
+	def _encrypt(self):
 		'''
 		Encrypt function can do the encrypting and decrypting
 		with XOR operation.
 		'''
 		try:
-			self.pb.Display()
+			self.pb.display()
 		except:
 			pass
 		return "".join(list(map(lambda x, y: chr(ord(x) ^ ord(y)), self.data, self.key)))
@@ -43,20 +44,20 @@ class ShuffleXOR:
 	def __init__(self, data, key, UI=False):
 		# Variables
 		self.UI = UI
-		self.Blocks = []
-		self.Keylist = [] # Key chars as decimals
-		self.Keyvalues = [] # Values that will used to shuffle blocks
+		self.blocks = []
+		self.keylist = [] # Key chars as decimals
+		self.keyvalues = [] # Values that will used to shuffle blocks
 		self.key = key
 		self.data = data
 
-	def Encrypt(self):
+	def encrypt(self):
 		if self.UI == True:
 			print("Encrypting")
 
-		self._GenSalt()
-		self._GetKeyHash(self.salt)
-		self._GetBlocks(self.data)
-		self._GetKeyValues()
+		self._gen_salt()
+		self._get_keyhash(self.salt)
+		self._get_blocks(self.data)
+		self._get_keyvalues()
 
 		'''
 		XOR whole data with original key and keyhash to ensure that no valid
@@ -66,120 +67,120 @@ class ShuffleXOR:
 		'''
 
 		if self.UI == True:
-			StepOneEncrypt = XOR(self.key, len(self.Blocks)*2)
-			StepTwoEncrypt = XOR(self.KeyHash)
-			StepTwoEncrypt.pb = StepOneEncrypt.pb
+			step_one_encrypt = XOR(self.key, len(self.blocks)*2)
+			step_two_encrypt = XOR(self.keyhash)
+			step_two_encrypt.pb = step_one_encrypt.pb
 		else:
-			StepOneEncrypt = XOR(self.key)
-			StepTwoEncrypt = XOR(self.KeyHash)
+			step_one_encrypt = XOR(self.key)
+			step_two_encrypt = XOR(self.keyhash)
 
-		self.Blocks = list(map(StepOneEncrypt.InsertData, self.Blocks))
-		self._PartialEncrypt()
-		return self.salt + "".join(list(map(StepTwoEncrypt.InsertData, self.Blocks)))
+		self.blocks = list(map(step_one_encrypt.insert_data, self.blocks))
+		self._partial_encrypt()
+		return self.salt + "".join(list(map(step_two_encrypt.insert_data, self.blocks)))
 
-	def Decrypt(self):
+	def decrypt(self):
 		if self.UI == True:
 			print("Decrypting")
 
-		self._GetSalt()
-		self._GetKeyHash(self.salt)
-		self._GetBlocks(self.data)
-		self._GetKeyValues()
+		self._get_salt()
+		self._get_keyhash(self.salt)
+		self._get_blocks(self.data)
+		self._get_keyvalues()
 
 		if self.UI == True:
-			StepOneDecrypt = XOR(self.key, len(self.Blocks)*2)
-			StepTwoDecrypt = XOR(self.KeyHash)
-			StepTwoDecrypt.pb = StepOneDecrypt.pb
+			step_one_decrypt = XOR(self.key, len(self.blocks)*2)
+			step_two_decrypt = XOR(self.keyhash)
+			step_two_decrypt.pb = step_one_decrypt.pb
 		else:
-			StepOneDecrypt = XOR(self.key)
-			StepTwoDecrypt = XOR(self.KeyHash)
+			step_one_decrypt = XOR(self.key)
+			step_two_decrypt = XOR(self.keyhash)
 
-		self.Blocks = list(map(StepOneDecrypt.InsertData, self.Blocks))
-		self._PartialDecrypt()
-		return "".join(list(map(StepTwoDecrypt.InsertData, self.Blocks)))
+		self.blocks = list(map(step_one_decrypt.insert_data, self.blocks))
+		self._partial_decrypt()
+		return "".join(list(map(step_two_decrypt.insert_data, self.blocks)))
 
-	def _PartialEncrypt(self): # Encrypt certain blocks with salt while shuffling
-		PartialEncrypter = XOR(self.SaltKey)
-		AmountBlocksToEncrypt = int(math.sqrt(self.BlockAmount))
+	def _partial_encrypt(self): # Encrypt certain blocks with salt while shuffling
+		partial_encrypter = XOR(self.saltkey)
+		amount_blocks_to_encrypt = int(math.sqrt(self.block_amount))
 
-		for i in range(AmountBlocksToEncrypt):
-			EncryptIndex = (len(self.Blocks) % ((i+1) * AmountBlocksToEncrypt)-1)
-			self.Blocks[EncryptIndex] = PartialEncrypter.InsertData(self.Blocks[EncryptIndex])
-			self._ShuffleBlocks()
+		for i in range(amount_blocks_to_encrypt):
+			encrypt_index = (len(self.blocks) % ((i+1) * amount_blocks_to_encrypt)-1)
+			self.blocks[encrypt_index] = partial_encrypter.insert_data(self.blocks[encrypt_index])
+			self._shuffle_blocks()
 
 
-	def _PartialDecrypt(self): # Decrypt certain blocks with salt while shuffling
-		DecryptIndexes = []
-		PartialDecrypter = XOR(self.SaltKey)
-		AmountBlocksToDecrypt = int(math.sqrt(self.BlockAmount))
-		for i in range(AmountBlocksToDecrypt): # We need to walk all same indexes backwards that are used in partialencrypter
-			DecryptIndexes.append((len(self.Blocks) % ((i+1) * AmountBlocksToDecrypt)-1))
+	def _partial_decrypt(self): # Decrypt certain blocks with salt while shuffling
+		decrypt_indexes = []
+		partial_decrypter = XOR(self.saltkey)
+		amount_blocks_to_decrypt = int(math.sqrt(self.block_amount))
+		for i in range(amount_blocks_to_decrypt): # We need to walk all same indexes backwards that are used in partialencrypter
+			decrypt_indexes.append((len(self.blocks) % ((i+1) * amount_blocks_to_decrypt)-1))
 
-		for i in range(AmountBlocksToDecrypt):
-			self._SortBlocks()
-			self.Blocks[DecryptIndexes[-(i+1)]] = PartialDecrypter.InsertData(self.Blocks[DecryptIndexes[-(i+1)]])
+		for i in range(amount_blocks_to_decrypt):
+			self._sort_blocks()
+			self.blocks[decrypt_indexes[-(i+1)]] = partial_decrypter.insert_data(self.blocks[decrypt_indexes[-(i+1)]])
 
-	def _GetKeyHash(self, salt): # Getting KeyHash from key and salt combination
-		self.SaltKey = self.key + salt
-		self.KeyHash = sha256(self.SaltKey.encode("utf-8")).hexdigest()
+	def _get_keyhash(self, salt): # Getting KeyHash from key and salt combination
+		self.saltkey = self.key + salt
+		self.keyhash = sha256(self.saltkey.encode("utf-8")).hexdigest()
 
-	def _GetSalt(self): # Getting salt from data when decrypting
+	def _get_salt(self): # Getting salt from data when decrypting
 		self.salt = self.data[:16]
 		self.data = self.data[16:]
 
-	def _GenSalt(self): # Generating salt when encrypting
+	def _gen_salt(self): # Generating salt when encrypting
 		self.salt = "".join(map(lambda x: chr(random.randint(1, 255)), range(16)))
 
-	def _SortBlocks(self): # Sorting blocks back to original order.
-		SortedData = [None] * len(self.Keyvalues)
-		DestKeyValues = self.Keyvalues[:]
-		self.Keyvalues.sort()
-		self.Blocks = list(zip(self.Keyvalues, self.Blocks))
-		self.Blocks.sort(key=lambda x: DestKeyValues.index(x[0]))
-		self.Blocks = list(map(lambda x: x[1],self.Blocks))
-		self.Keyvalues = DestKeyValues
+	def _sort_blocks(self): # Sorting blocks back to original order.
+		sorted_data = [None] * len(self.keyvalues)
+		dest_key_values = self.keyvalues[:]
+		self.keyvalues.sort()
+		self.blocks = list(zip(self.keyvalues, self.blocks))
+		self.blocks.sort(key=lambda x: dest_key_values.index(x[0]))
+		self.blocks = list(map(lambda x: x[1], self.blocks))
+		self.keyvalues = dest_key_values
 
-	def _ShuffleBlocks(self): # Shuffle blocks based on self.Keyvalues
-		for i in range(len(self.Keyvalues)):
-			self.Blocks[i] = (self.Keyvalues[i], self.Blocks[i])
-		self.Blocks.sort(key=lambda x: x[0])
+	def _shuffle_blocks(self): # Shuffle blocks based on self.Keyvalues
+		for i in range(len(self.keyvalues)):
+			self.blocks[i] = (self.keyvalues[i], self.blocks[i])
+		self.blocks.sort(key=lambda x: x[0])
 
-		for i in range(len(self.Blocks)):
-			self.Blocks[i] = self.Blocks[i][1]
+		for i in range(len(self.blocks)):
+			self.blocks[i] = self.blocks[i][1]
 
-	def _GetBlocks(self, data): # Form blocks from data
-		self.BlockSize = math.ceil(math.sqrt(len(data)))
-		self.BlockAmount = math.ceil(len(data) / self.BlockSize)
-		for i in range(int(self.BlockAmount)):
-			self.Blocks.append(data[i*int(self.BlockSize):(i+1)*int(self.BlockSize)])
+	def _get_blocks(self, data): # Form blocks from data
+		self.block_size = math.ceil(math.sqrt(len(data)))
+		self.block_amount = math.ceil(len(data) / self.block_size)
+		for i in range(int(self.block_amount)):
+			self.blocks.append(data[i*int(self.block_size):(i+1)*int(self.block_size)])
 		del self.data
 
-	def _GetKeyValues(self): # Get self.Keyvalues based on amount of blocks
-		for i in range(len(self.Blocks)):
-			self.Keylist.append(ord(self.KeyHash[(len(self.KeyHash) % (i+1))-1]))
+	def _get_keyvalues(self): # Get self.Keyvalues based on amount of blocks
+		for i in range(len(self.blocks)):
+			self.keylist.append(ord(self.keyhash[(len(self.keyhash) % (i+1))-1]))
 
 		j = 0
-		BaseValue = 1
-		while len(self.Keyvalues) < len(self.Blocks):
-			if j < len(self.Keylist):
-				Value = self.Keylist[j]
-			if Value not in self.Keyvalues: # Use different keyvalues!
-				self.Keyvalues.append(Value)
+		base_value = 1
+		while len(self.keyvalues) < len(self.blocks):
+			if j < len(self.keylist):
+				value = self.keylist[j]
+			if value not in self.keyvalues: # Use different keyvalues!
+				self.keyvalues.append(value)
 			else:
 				'''
 				Get value from logarithm last decimals
 				'''
-				BaseValue += 1
-				Value += int(str(math.log(BaseValue)).replace(".", "")[-len(str(j)):])
+				base_value += 1
+				value += int(str(math.log(base_value)).replace(".", "")[-len(str(j)):])
 			j += 1
 
 		'''
 		This is needed if padding is not used in the end of data!!
 		(Last block needs to stay last) Maybe use padding in the future?
 		'''
-		m = max(self.Keyvalues)
-		self.Keyvalues.remove(m)
-		self.Keyvalues.append(m)
+		m = max(self.keyvalues)
+		self.keyvalues.remove(m)
+		self.keyvalues.append(m)
 
 
 '''
@@ -189,36 +190,36 @@ are required as parameters.
 class XORFile:
 
 	def __init__(self, srcfp, key):
-		self.MegaByte = 1048576
+		self.mega_byte = 1048576
 		self.srcfp = srcfp
 		self.key = key
 		self.srcf = open(self.srcfp, "rb")
-		self._GetEncoding()
+		self._get_encoding()
 
-	def _GetEncoding(self): # Detect file encoding
+	def _get_encoding(self): # Detect file encoding
 		with open(self.srcfp, "rb") as f:
 			data = f.read(1024)
 
 		try:
 			data = str(data, "utf-8")
-			self.Encoding = "utf-8"
+			self.encoding = "utf-8"
 		except:
 			data = str(data, "Latin-1")
-			self.Encoding = "Latin-1"
+			self.encoding = "Latin-1"
 
-	def Encrypt(self, dstfp): # Encrypt data using ShuffleXOR
+	def encrypt(self, dstfp): # Encrypt data using ShuffleXOR
 		self.dstf = open(dstfp, "wb")
 		while True:
-			data = str(self.srcf.read(self.MegaByte), self.Encoding)
+			data = str(self.srcf.read(self.mega_byte), self.encoding)
 			if data == "": break
-			self.dstf.write(bytes(ShuffleXOR(data, self.key).Encrypt(), self.Encoding))
+			self.dstf.write(bytes(ShuffleXOR(data, self.key).encrypt(), self.encoding))
 
-	def Decrypt(self, dstfp): # Decrypt data using ShuffleXOR
+	def decrypt(self, dstfp): # Decrypt data using ShuffleXOR
 		self.dstf = open(dstfp, "wb")
 		while True:
-			data = str(self.srcf.read(self.MegaByte + 16), self.Encoding)
+			data = str(self.srcf.read(self.mega_byte + 16), self.encoding)
 			if data == "": break
-			self.dstf.write(bytes(ShuffleXOR(data, self.key).Decrypt(), self.Encoding))
+			self.dstf.write(bytes(ShuffleXOR(data, self.key).decrypt(), self.encoding))
 
 
 '''
@@ -228,147 +229,147 @@ required as parameters.
 class XORFolder:
 
 	def __init__(self, srcfp, key, UI=False):
-		self.MegaByte = 1048576
+		self.mega_byte = 1048576
 		self.key = key
 		self.UI = UI
 		# Path variables
-		self.RootFolder = ""
+		self.root_folder = ""
 		self.srcfp = srcfp
-		self.FilePaths = []
-		self.FolderPaths = []
+		self.file_paths = []
+		self.folder_paths = []
 
 		# Metadata related variables
-		self.MetaBeginTag = "[METABEGIN]"
-		self.MetaEndTag = "[METAEND]"
-		self.MetaData = ""
+		self.meta_begin_tag = "[METABEGIN]"
+		self.meta_end_tag = "[METAEND]"
+		self.meta_data = ""
 
-		self.FoldersBeginTag = "[FOLDERSBEGIN]"
-		self.FoldersEndTag = "[FOLDERSEND]"
-		self.FoldersSepTag = "[FOLDERSSEP]"
+		self.folders_begin_tag = "[FOLDERSBEGIN]"
+		self.folders_end_tag = "[FOLDERSEND]"
+		self.folders_sep_tag = "[FOLDERSSEP]"
 
-		self.FilepathBeginTag = "[FILEPATHBEGIN]"
-		self.FilepathEndTag = "[FILEPATHEND]"
-		self.FilepathSepTag = "[FILEPATHSEP]"
+		self.filepath_begin_tag = "[FILEPATHBEGIN]"
+		self.filepath_end_tag = "[FILEPATHEND]"
+		self.filepath_sep_tag = "[FILEPATHSEP]"
 
-		self.FileBeginTag = "[FILEBEGIN]"
-		self.FileEndTag = "[FILEEND]"
+		self.file_begin_tag = "[FILEBEGIN]"
+		self.file_end_tag = "[FILEEND]"
 
-	def Encrypt(self, dstfp):
-		self.RootFolder = ".XORFoldertmp" + os.path.sep
+	def encrypt(self, dstfp):
+		self.root_folder = ".XORFoldertmp" + os.path.sep
 		self.dstfp = dstfp
-		self._GetPaths()
-		self._MakeFolders()
-		self._FormMetaData()
+		self._get_paths()
+		self._make_folders()
+		self._form_meta_data()
 
 		'''
 		XOR every file seperately to temp path
 		'''
-		pb = ProgressBar(len(self.FilePaths))
-		for fp in self.FilePaths:
+		pb = ProgressBar(len(self.file_paths))
+		for fp in self.file_paths:
 			if self.UI == True:
-				pb.Display()
-			XORFile(fp, self.key).Encrypt(self.RootFolder + fp)
+				pb.display()
+			XORFile(fp, self.key).encrypt(self.root_folder + fp)
 
-		self._FilesToFile()
-		shutil.rmtree(self.RootFolder, ignore_errors=True)
+		self._files_to_file()
+		shutil.rmtree(self.root_folder, ignore_errors=True)
 
-	def Decrypt(self, dstfp):
-		self.RootFolder = ".XORFoldertmp" + os.path.sep
-		self._GetMetaData()
-		self._MakeFolders()
+	def decrypt(self, dstfp):
+		self.root_folder = ".XORFoldertmp" + os.path.sep
+		self._get_meta_data()
+		self._make_folders()
 
-		self._FileToFiles()
+		self._file_to_files()
 
-		self.TmpFolder = self.RootFolder
-		self.RootFolder = dstfp + os.path.sep
-		self._MakeFolders()
+		self.tmp_folder = self.root_folder
+		self.root_folder = dstfp + os.path.sep
+		self._make_folders()
 
-		pb = ProgressBar(len(self.FilePaths))
-		for fp in self.FilePaths:
+		pb = ProgressBar(len(self.file_paths))
+		for fp in self.file_paths:
 			if self.UI == True:
-				pb.Display()
+				pb.display()
 			if fp != "":
-				XORFile(self.TmpFolder + fp, self.key).Decrypt(dstfp + os.path.sep + fp)
+				XORFile(self.tmp_folder + fp, self.key).decrypt(dstfp + os.path.sep + fp)
 
-		shutil.rmtree(self.TmpFolder, ignore_errors=True)
+		shutil.rmtree(self.tmp_folder, ignore_errors=True)
 
-	def _FilesToFile(self): # Move files from temp path to one encrypted file
+	def _files_to_file(self): # Move files from temp path to one encrypted file
 		with open(self.dstfp, "wb+") as tf: # Format destination file
-			tf.write(bytes(self.MetaBeginTag + ShuffleXOR(self.MetaData, self.key).Encrypt() + self.MetaEndTag, "Latin-1"))
+			tf.write(bytes(self.meta_begin_tag + ShuffleXOR(self.meta_data, self.key).encrypt() + self.meta_end_tag, "Latin-1"))
 
 		with open(self.dstfp, "ab") as f:
-			for fp in self.FilePaths:
-				with open(self.RootFolder + fp, "rb") as sf:
+			for fp in self.file_paths:
+				with open(self.root_folder + fp, "rb") as sf:
 					data = sf.read()
-					f.write(bytes(self.FileBeginTag, "Latin-1") + data + bytes(self.FileEndTag, "Latin-1"))
+					f.write(bytes(self.file_begin_tag, "Latin-1") + data + bytes(self.file_end_tag, "Latin-1"))
 
-	def _FileToFiles(self): # Extract files from one encrypted file
+	def _file_to_files(self): # Extract files from one encrypted file
 		with open(self.srcfp, "rb") as f:
 			data = re.findall(r"\[FILEBEGIN\](.*?)\[FILEEND\]", str(f.read(), "Latin-1"), re.DOTALL)
-			for i in range(len(self.FilePaths)):
-				if self.FilePaths[i] != "":
-					with open(self.RootFolder + self.FilePaths[i], "wb+") as df:
+			for i in range(len(self.file_paths)):
+				if self.file_paths[i] != "":
+					with open(self.root_folder + self.file_paths[i], "wb+") as df:
 						df.write(bytes(data[i], "Latin-1"))
 
-	def _GetPaths(self): # Get path of folders and files (Encrypting)
+	def _get_paths(self): # Get path of folders and files (Encrypting)
 		for path, dirs, files in os.walk(self.srcfp):
-			self.FolderPaths.append(path)
+			self.folder_paths.append(path)
 			for f in files:
-				self.FilePaths.append(path + os.path.sep + f)
+				self.file_paths.append(path + os.path.sep + f)
 
-	def _MakeFolders(self): # Make all folders to destination path
-		for path in self.FolderPaths:
+	def _make_folders(self): # Make all folders to destination path
+		for path in self.folder_paths:
 			try:
-				os.makedirs(self.RootFolder + path)
+				os.makedirs(self.root_folder + path)
 			except FileExistsError:
 				pass
 
-	def _FormMetaData(self): # Form meta data for folders and file paths
-		self.MetaData += self.FoldersBeginTag
-		for folder in self.FolderPaths:
-			self.MetaData += folder + self.FoldersSepTag
-		self.MetaData += self.FoldersEndTag
+	def _form_meta_data(self): # Form meta data for folders and file paths
+		self.meta_data += self.folders_begin_tag
+		for folder in self.folder_paths:
+			self.meta_data += folder + self.folders_sep_tag
+		self.meta_data += self.folders_end_tag
 
-		self.MetaData += self.FilepathBeginTag
-		for filename in self.FilePaths:
-			self.MetaData += filename + self.FilepathSepTag
-		self.MetaData += self.FilepathEndTag
+		self.meta_data += self.filepath_begin_tag
+		for filename in self.file_paths:
+			self.meta_data += filename + self.filepath_sep_tag
+		self.meta_data += self.filepath_end_tag
 
-	def _GetMetaData(self): # Get metadata from encrypted file (Decrypting)
+	def _get_meta_data(self): # Get metadata from encrypted file (Decrypting)
 		with open(self.srcfp, "rb") as f:
-			data = str(f.read(self.MegaByte), "Latin-1")
-			while self.MetaBeginTag not in data and self.MetaEndTag not in data:
-				data += str(f.read(self.MegaByte), "Latin-1")
-		self.MetaData = ShuffleXOR(re.findall(r"\[METABEGIN\](.*?)\[METAEND\]", data, re.DOTALL)[0], self.key).Decrypt()
-		self.FolderPaths = re.findall(r"\[FOLDERSBEGIN\](.*?)\[FOLDERSEND\]", self.MetaData, re.DOTALL)[0].split("[FOLDERSSEP]")
-		self.FilePaths = re.findall(r"\[FILEPATHBEGIN\](.*?)\[FILEPATHEND\]", self.MetaData, re.DOTALL)[0].split("[FILEPATHSEP]")
+			data = str(f.read(self.mega_byte), "Latin-1")
+			while self.meta_begin_tag not in data and self.meta_end_tag not in data:
+				data += str(f.read(self.mega_byte), "Latin-1")
+		self.meta_data = ShuffleXOR(re.findall(r"\[METABEGIN\](.*?)\[METAEND\]", data, re.DOTALL)[0], self.key).decrypt()
+		self.folder_paths = re.findall(r"\[FOLDERSBEGIN\](.*?)\[FOLDERSEND\]", self.meta_data, re.DOTALL)[0].split("[FOLDERSSEP]")
+		self.file_paths = re.findall(r"\[FILEPATHBEGIN\](.*?)\[FILEPATHEND\]", self.meta_data, re.DOTALL)[0].split("[FILEPATHSEP]")
 
 '''
 Trying to create simple and fast hash function
 '''
 class LHash:
 
-	def Hash(self, data):
-		self.HashInt = sum(list(map(lambda x: ord(x), data)))
-		while len(str(self.HashInt)) < 64:
-			self.HashInt = self.HashInt**2
-		return str(self.HashInt)[:64]
+	def hash(self, data):
+		self.hash_int = sum(list(map(lambda x: ord(x), data)))
+		while len(str(self.hash_int)) < 64:
+			self.hash_int = self.hash_int**2
+		return str(self.hash_int)[:64]
 
 
 class ProgressBar:
 
 	def __init__(self, job):
-		self.Progress = 0
-		self.Job = job
-		self.StartTime = time.time()
+		self.progress = 0
+		self.job = job
+		self.start_time = time.time()
 
 	def _progress(self):
-		total_time = int(time.time() - self.StartTime)
+		total_time = int(time.time() - self.start_time)
 		self.eta = "0"
 		self.elapsed = "0"
-		self.p = float(self.Progress) / float(self.Job) * 100
-		self.bar = "[" + "="*int((self.p/float(10)*2)) + " "*(20-int((self.p/float(10)*2))) + "]"
-		if self.Job == self.Progress+1:
+		self.p = float(self.progress) / float(self.job) * 100
+		self.bar = "[" + "="*int(self.p/float(10)*2) + " "*(20-int(self.p/float(10)*2)) + "]"
+		if self.job == self.progress+1:
 			self.bar = "[" + "="*20 + "]"
 			self.p = 100.0
 		if self.p > 0:
@@ -389,10 +390,10 @@ class ProgressBar:
 					hours_elapsed = minutes_elapsed / 60
 					self.elapsed = str(int(hours_elapsed)) + "h " + str(int(minutes_elapsed % 60)) + "m " + str(int(total_time % 60)) + "s"
 
-	def Display(self):
+	def display(self):
 		self._progress()
 		sys.stdout.write("\r" + self.bar + " " + str(int(self.p)) + "% [ETA: " + self.eta + " | Elapsed: " + self.elapsed + "]     ")
-		if self.Progress == self.Job-1:
+		if self.progress == self.job-1:
 			sys.stdout.write("\n")
 		sys.stdout.flush()
-		self.Progress += 1
+		self.progress += 1
