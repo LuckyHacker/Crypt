@@ -54,7 +54,7 @@ class ShuffleXOR:
             print("Encrypting")
 
         self._gen_salt()
-        self._get_keyhash(self.salt)
+        self._get_keyhash()
         self._get_blocks(self.data)
         self._get_keyvalues()
 
@@ -81,7 +81,7 @@ class ShuffleXOR:
             print("Decrypting")
 
         self._get_salt()
-        self._get_keyhash(self.salt)
+        self._get_keyhash()
         self._get_blocks(self.data)
         self._get_keyvalues()
 
@@ -102,25 +102,26 @@ class ShuffleXOR:
         amount_blocks_to_encrypt = int(math.sqrt(self.block_amount))
 
         for i in range(amount_blocks_to_encrypt):
-            encrypt_index = (len(self.blocks) % ((i + 1) * amount_blocks_to_encrypt) - 1)
-            self.blocks[encrypt_index] = partial_encrypter.insert(self.blocks[encrypt_index])
+            encrypt_index = (len(self.blocks) %
+                             ((i + 1) * amount_blocks_to_encrypt) - 1)
+            self.blocks[encrypt_index] = partial_encrypter.insert(
+                self.blocks[encrypt_index])
             self._shuffle_blocks()
 
     def _partial_decrypt(self):  # Decrypt certain blocks with salt while shuffling
-        decrypt_indexes = []
         partial_decrypter = XOR(self.saltkey)
         amount_blocks_to_decrypt = int(math.sqrt(self.block_amount))
         # We need to walk all same indexes backwards that are used in partialencrypter
-        for i in range(amount_blocks_to_decrypt):
-            decrypt_indexes.append((len(self.blocks) % ((i + 1) * amount_blocks_to_decrypt) - 1))
+        decrypt_indexes = list(map(lambda i: (len(self.blocks) % (
+            (i + 1) * amount_blocks_to_decrypt) - 1), range(amount_blocks_to_decrypt)))
 
         for i in range(amount_blocks_to_decrypt):
             self._sort_blocks()
             self.blocks[decrypt_indexes[-(i + 1)]] = partial_decrypter.insert(
                 self.blocks[decrypt_indexes[-(i + 1)]])
 
-    def _get_keyhash(self, salt):  # Getting KeyHash from key and salt combination
-        self.saltkey = self.key + salt
+    def _get_keyhash(self):  # Getting KeyHash from key and salt combination
+        self.saltkey = self.key + self.salt
         self.keyhash = sha256(self.saltkey.encode("utf-8")).hexdigest()
 
     def _get_salt(self):  # Getting salt from data when decrypting
@@ -128,7 +129,7 @@ class ShuffleXOR:
         self.data = self.data[16:]
 
     def _gen_salt(self):  # Generating salt when encrypting
-        self.salt = "".join(map(lambda x: chr(random.randint(1, 255)), range(16)))
+        self.salt = str(os.urandom(16), "latin-1")
 
     def _sort_blocks(self):  # Sorting blocks back to original order.
         dest_key_values = self.keyvalues[:]
@@ -139,23 +140,23 @@ class ShuffleXOR:
         self.keyvalues = dest_key_values
 
     def _shuffle_blocks(self):  # Shuffle blocks based on self.Keyvalues
-        for i in range(len(self.keyvalues)):
-            self.blocks[i] = (self.keyvalues[i], self.blocks[i])
+        self.blocks = list(
+            map(lambda x, y: (x, y), self.keyvalues, self.blocks))
         self.blocks.sort(key=lambda x: x[0])
-
-        for i in range(len(self.blocks)):
-            self.blocks[i] = self.blocks[i][1]
+        self.blocks = list(map(lambda x: x[1], self.blocks))
 
     def _get_blocks(self, data):  # Form blocks from data
         self.block_size = math.ceil(math.sqrt(len(data)))
         self.block_amount = math.ceil(len(data) / self.block_size)
         for i in range(int(self.block_amount)):
-            self.blocks.append(data[i * int(self.block_size):(i + 1) * int(self.block_size)])
+            self.blocks.append(
+                data[i * int(self.block_size):(i + 1) * int(self.block_size)])
         del self.data
 
     def _get_keyvalues(self):  # Get self.Keyvalues based on amount of blocks
         for i in range(len(self.blocks)):
-            self.keylist.append(ord(self.keyhash[(len(self.keyhash) % (i + 1)) - 1]))
+            self.keylist.append(
+                ord(self.keyhash[(len(self.keyhash) % (i + 1)) - 1]))
 
         j = 0
         base_value = 1
@@ -169,7 +170,8 @@ class ShuffleXOR:
                 Get value from logarithm last decimals
                 '''
                 base_value += 1
-                value += int(str(math.log(base_value)).replace(".", "")[-len(str(j)):])
+                value += int(str(math.log(base_value)
+                                 ).replace(".", "")[-len(str(j)):])
             j += 1
 
         '''
@@ -204,8 +206,8 @@ class XORFile:
             data = str(data, "utf-8")
             self.encoding = "utf-8"
         except:
-            data = str(data, "Latin-1")
-            self.encoding = "Latin-1"
+            data = str(data, "latin-1")
+            self.encoding = "latin-1"
 
     def encrypt(self, dstfp):  # Encrypt data using ShuffleXOR
         self.dstf = open(dstfp, "wb")
@@ -214,7 +216,8 @@ class XORFile:
             data = str(self.srcf.read(self.buffer_size), self.encoding)
             if data == "":
                 break
-            self.dstf.write(bytes(ShuffleXOR(data, self.key).encrypt(), self.encoding))
+            self.dstf.write(
+                bytes(ShuffleXOR(data, self.key).encrypt(), self.encoding))
 
     def decrypt(self, dstfp):  # Decrypt data using ShuffleXOR
         self.dstf = open(dstfp, "wb")
@@ -222,7 +225,8 @@ class XORFile:
             data = str(self.srcf.read(self.buffer_size + 16), self.encoding)
             if data == "":
                 break
-            self.dstf.write(bytes(ShuffleXOR(data, self.key).decrypt(), self.encoding))
+            self.dstf.write(
+                bytes(ShuffleXOR(data, self.key).decrypt(), self.encoding))
 
 
 '''
@@ -294,29 +298,31 @@ class XORFolder:
             if self.UI:
                 pb.display()
             if fp != "":
-                XORFile(self.tmp_folder + fp, self.key).decrypt(dstfp + os.path.sep + fp)
+                XORFile(self.tmp_folder + fp,
+                        self.key).decrypt(dstfp + os.path.sep + fp)
 
         shutil.rmtree(self.tmp_folder, ignore_errors=True)
 
     def _files_to_file(self):  # Move files from temp path to one encrypted file
         with open(self.dstfp, "wb+") as tf:  # Format destination file
             tf.write(bytes(self.meta_begin_tag + ShuffleXOR(self.meta_data,
-                                                            self.key).encrypt() + self.meta_end_tag, "Latin-1"))
+                                                            self.key).encrypt() + self.meta_end_tag, "latin-1"))
 
         with open(self.dstfp, "ab") as f:
             for fp in self.file_paths:
                 with open(self.root_folder + fp, "rb") as sf:
                     data = sf.read()
-                    f.write(bytes(self.file_begin_tag, "Latin-1") +
-                            data + bytes(self.file_end_tag, "Latin-1"))
+                    f.write(bytes(self.file_begin_tag, "latin-1") +
+                            data + bytes(self.file_end_tag, "latin-1"))
 
     def _file_to_files(self):  # Extract files from one encrypted file
         with open(self.srcfp, "rb") as f:
-            data = re.findall(r"\[FILEBEGIN\](.*?)\[FILEEND\]", str(f.read(), "Latin-1"), re.DOTALL)
+            data = re.findall(r"\[FILEBEGIN\](.*?)\[FILEEND\]",
+                              str(f.read(), "latin-1"), re.DOTALL)
             for i in range(len(self.file_paths)):
                 if self.file_paths[i] != "":
                     with open(self.root_folder + self.file_paths[i], "wb+") as df:
-                        df.write(bytes(data[i], "Latin-1"))
+                        df.write(bytes(data[i], "latin-1"))
 
     def _get_paths(self):  # Get path of folders and files (Encrypting)
         for path, dirs, files in os.walk(self.srcfp):
@@ -344,9 +350,9 @@ class XORFolder:
 
     def _get_meta_data(self):  # Get metadata from encrypted file (Decrypting)
         with open(self.srcfp, "rb") as f:
-            data = str(f.read(self.buffer_size), "Latin-1")
+            data = str(f.read(self.buffer_size), "latin-1")
             while self.meta_begin_tag not in data and self.meta_end_tag not in data:
-                data += str(f.read(self.buffer_size), "Latin-1")
+                data += str(f.read(self.buffer_size), "latin-1")
         self.meta_data = ShuffleXOR(re.findall(
             r"\[METABEGIN\](.*?)\[METAEND\]", data, re.DOTALL)[0], self.key).decrypt()
         self.folder_paths = re.findall(
